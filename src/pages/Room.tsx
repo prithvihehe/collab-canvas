@@ -10,7 +10,8 @@ import {
   Check,
   Minus,
   Plus,
-  Hand,
+  Palette,
+  X,
 } from "lucide-react";
 import { socket } from "../lib/socket";
 import type { Tool, LineData } from "../types/socket";
@@ -27,6 +28,7 @@ export default function Room() {
   const [copied, setCopied] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [showColorPicker, setShowColorPicker] = useState(false);
   const [stageSize, setStageSize] = useState({
     width: window.innerWidth,
     height: window.innerHeight,
@@ -63,7 +65,6 @@ export default function Room() {
   useEffect(() => {
     if (!roomId) return;
 
-    // Connection event handlers
     const onConnect = () => {
       console.log("Socket connected!");
       setIsConnected(true);
@@ -112,7 +113,6 @@ export default function Room() {
       setLines([]);
     });
 
-    // Connect the socket
     socket.connect();
 
     return () => {
@@ -206,26 +206,160 @@ export default function Room() {
   };
 
   return (
-    <div className="h-screen w-screen bg-[#121212] overflow-hidden relative">
-      {/* Main Toolbar - Excalidraw style centered */}
-      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-20">
-        <div className="flex items-center gap-1 bg-[#232329] px-2 py-2 rounded-xl shadow-2xl border border-[#3d3d45]">
-          {/* Hand/Pan Tool */}
+    <div className="h-screen w-screen bg-[#121212] overflow-hidden relative touch-none">
+      {/* Mobile Bottom Toolbar */}
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-20 sm:hidden">
+        <div className="flex items-center gap-1 bg-[#232329] px-2 py-2 rounded-2xl shadow-2xl border border-[#3d3d45]">
+          {/* Pen Tool */}
           <button
-            onClick={() => setTool("pan")}
-            className={`p-3 rounded-lg transition-all ${
-              tool === "pan"
+            onClick={() => setTool("pen")}
+            className={`p-3 rounded-xl transition-all ${
+              tool === "pen"
                 ? "bg-[#4f46e5] text-white"
-                : "text-[#a1a1aa] hover:bg-[#2d2d35] hover:text-white"
+                : "text-[#a1a1aa] active:bg-[#2d2d35]"
             }`}
-            title="Pan (H)"
           >
-            <Hand size={18} />
+            <Pencil size={20} />
+          </button>
+
+          {/* Eraser Tool */}
+          <button
+            onClick={() => setTool("eraser")}
+            className={`p-3 rounded-xl transition-all ${
+              tool === "eraser"
+                ? "bg-[#4f46e5] text-white"
+                : "text-[#a1a1aa] active:bg-[#2d2d35]"
+            }`}
+          >
+            <Eraser size={20} />
           </button>
 
           {/* Divider */}
           <div className="w-px h-8 bg-[#3d3d45] mx-1" />
 
+          {/* Color Button - Opens Picker */}
+          <button
+            onClick={() => setShowColorPicker(!showColorPicker)}
+            className="p-2 rounded-xl transition-all active:scale-95"
+          >
+            <div
+              className="w-7 h-7 rounded-lg border-2 border-[#4f46e5]"
+              style={{ backgroundColor: color }}
+            />
+          </button>
+
+          {/* Stroke Width */}
+          <div className="flex items-center gap-1 px-1">
+            <button
+              onClick={() => setStrokeWidth((w) => Math.max(1, w - 1))}
+              className="p-2 rounded-lg text-[#a1a1aa] active:bg-[#2d2d35]"
+            >
+              <Minus size={16} />
+            </button>
+            <span className="text-[#a1a1aa] text-sm font-mono w-5 text-center">
+              {strokeWidth}
+            </span>
+            <button
+              onClick={() => setStrokeWidth((w) => Math.min(20, w + 1))}
+              className="p-2 rounded-lg text-[#a1a1aa] active:bg-[#2d2d35]"
+            >
+              <Plus size={16} />
+            </button>
+          </div>
+
+          {/* Divider */}
+          <div className="w-px h-8 bg-[#3d3d45] mx-1" />
+
+          {/* Clear Canvas */}
+          <button
+            onClick={handleClearCanvas}
+            className="p-3 rounded-xl text-[#ef4444] active:bg-[#2d2d35]"
+          >
+            <Trash2 size={20} />
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Color Picker Popup */}
+      {showColorPicker && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-30 sm:hidden">
+          <div className="bg-[#232329] p-3 rounded-2xl shadow-2xl border border-[#3d3d45]">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-[#71717a]">Colors</span>
+              <button
+                onClick={() => setShowColorPicker(false)}
+                className="p-1 text-[#71717a]"
+              >
+                <X size={14} />
+              </button>
+            </div>
+            <div className="flex gap-2 flex-wrap max-w-[200px]">
+              {presetColors.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => {
+                    setColor(c);
+                    setShowColorPicker(false);
+                  }}
+                  className={`w-9 h-9 rounded-lg transition-all border-2 ${
+                    color === c
+                      ? "border-[#4f46e5] scale-110"
+                      : "border-transparent"
+                  }`}
+                  style={{ backgroundColor: c }}
+                />
+              ))}
+              <label className="w-9 h-9 rounded-lg bg-gradient-to-br from-red-500 via-green-500 to-blue-500 cursor-pointer flex items-center justify-center">
+                <Palette size={16} className="text-white" />
+                <input
+                  type="color"
+                  value={color}
+                  onChange={(e) => {
+                    setColor(e.target.value);
+                    setShowColorPicker(false);
+                  }}
+                  className="sr-only"
+                />
+              </label>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Top Bar */}
+      <div className="fixed top-3 left-3 right-3 flex justify-between items-center z-20 sm:hidden">
+        {/* Connection Status */}
+        <div className="flex items-center gap-1.5 bg-[#232329]/90 backdrop-blur px-3 py-2 rounded-xl border border-[#3d3d45]">
+          <div
+            className={`w-2 h-2 rounded-full ${
+              isConnected ? "bg-[#22c55e] animate-pulse" : "bg-[#ef4444]"
+            }`}
+          />
+          <Users size={14} className="text-[#a1a1aa]" />
+          <span className="text-xs font-medium text-[#e4e4e7]">
+            {isConnected ? userCount : "..."}
+          </span>
+        </div>
+
+        {/* Share Button */}
+        <button
+          onClick={handleCopyLink}
+          className={`flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all shadow-lg ${
+            copied
+              ? "bg-[#22c55e] text-white"
+              : "bg-[#4f46e5] text-white active:bg-[#4338ca]"
+          }`}
+        >
+          {copied ? <Check size={14} /> : <Copy size={14} />}
+          <span className="text-xs font-medium">
+            {copied ? "Copied!" : "Share"}
+          </span>
+        </button>
+      </div>
+
+      {/* Desktop Toolbar - Hidden on mobile */}
+      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-20 hidden sm:block">
+        <div className="flex items-center gap-1 bg-[#232329] px-2 py-2 rounded-xl shadow-2xl border border-[#3d3d45]">
           {/* Pen Tool */}
           <button
             onClick={() => setTool("pen")}
@@ -255,7 +389,7 @@ export default function Room() {
           {/* Divider */}
           <div className="w-px h-8 bg-[#3d3d45] mx-1" />
 
-          {/* Color Palette */}
+          {/* Color Palette - Desktop */}
           <div className="flex items-center gap-1 px-1">
             {presetColors.map((c) => (
               <button
@@ -317,8 +451,8 @@ export default function Room() {
         </div>
       </div>
 
-      {/* Top Right - Share & Users */}
-      <div className="fixed top-4 right-4 flex items-center gap-2 z-20">
+      {/* Desktop Top Right - Share & Users */}
+      <div className="fixed top-4 right-4 flex items-center gap-2 z-20 hidden sm:flex">
         {/* Share Link Button */}
         <button
           onClick={handleCopyLink}
@@ -345,31 +479,35 @@ export default function Room() {
         {/* User Count & Connection Status */}
         <div className="flex items-center gap-2 bg-[#232329] px-4 py-2.5 rounded-xl shadow-lg border border-[#3d3d45]">
           <div className="flex items-center gap-1">
-            <div 
+            <div
               className={`w-2 h-2 rounded-full ${
-                isConnected 
-                  ? "bg-[#22c55e] animate-pulse" 
-                  : "bg-[#ef4444]"
-              }`} 
-              title={isConnected ? "Connected" : connectionError || "Disconnected"}
+                isConnected ? "bg-[#22c55e] animate-pulse" : "bg-[#ef4444]"
+              }`}
+              title={
+                isConnected ? "Connected" : connectionError || "Disconnected"
+              }
             />
             <Users size={16} className="text-[#a1a1aa]" />
           </div>
           <span className="text-sm font-medium text-[#e4e4e7]">
-            {isConnected ? `${userCount} ${userCount === 1 ? "user" : "users"}` : "Connecting..."}
+            {isConnected
+              ? `${userCount} ${userCount === 1 ? "user" : "users"}`
+              : "Connecting..."}
           </span>
         </div>
       </div>
 
       {/* Connection Error Banner */}
       {connectionError && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-30 bg-red-500/90 text-white px-4 py-2 rounded-lg shadow-lg">
-          <span className="text-sm">Connection failed: {connectionError}</span>
+        <div className="fixed top-16 sm:top-20 left-1/2 -translate-x-1/2 z-30 bg-red-500/90 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg shadow-lg">
+          <span className="text-xs sm:text-sm">
+            Connection failed: {connectionError}
+          </span>
         </div>
       )}
 
-      {/* Room ID indicator - bottom left */}
-      <div className="fixed bottom-4 left-4 z-20">
+      {/* Room ID indicator - Desktop only */}
+      <div className="fixed bottom-4 left-4 z-20 hidden sm:block">
         <div className="flex items-center gap-2 bg-[#232329]/80 backdrop-blur-sm px-3 py-2 rounded-lg border border-[#3d3d45]">
           <span className="text-xs text-[#71717a]">Room:</span>
           <span className="text-xs text-[#a1a1aa] font-mono">
