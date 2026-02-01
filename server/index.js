@@ -6,19 +6,34 @@ import cors from "cors";
 const app = express();
 app.use(cors());
 
+// Health check endpoint
+app.get("/", (req, res) => {
+  res.json({ status: "ok", message: "Collab Canvas Server Running" });
+});
+
+app.get("/health", (req, res) => {
+  res.json({ status: "ok" });
+});
+
 const httpServer = createServer(app);
-const io = new Server(httpServer, {
-  cors: {
-    origin: [
+
+// Allow all origins in production for now (you can restrict later)
+const allowedOrigins = process.env.FRONTEND_URL 
+  ? [
+      process.env.FRONTEND_URL,
       "http://localhost:5173",
       "http://localhost:5174",
-      "http://127.0.0.1:5173",
-      "http://127.0.0.1:5174",
-      // Add your Vercel domain here after deployment
-      process.env.FRONTEND_URL,
-    ].filter(Boolean),
+    ]
+  : "*";
+
+const io = new Server(httpServer, {
+  cors: {
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
+    credentials: true,
   },
+  // Important for some hosting platforms
+  transports: ["websocket", "polling"],
 });
 
 // In-memory storage for rooms

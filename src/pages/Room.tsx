@@ -25,6 +25,8 @@ export default function Room() {
   const [lines, setLines] = useState<LineData[]>([]);
   const [userCount, setUserCount] = useState(1);
   const [copied, setCopied] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
   const [stageSize, setStageSize] = useState({
     width: window.innerWidth,
     height: window.innerHeight,
@@ -61,8 +63,28 @@ export default function Room() {
   useEffect(() => {
     if (!roomId) return;
 
-    socket.connect();
-    socket.emit("join-room", roomId);
+    // Connection event handlers
+    const onConnect = () => {
+      console.log("Socket connected!");
+      setIsConnected(true);
+      setConnectionError(null);
+      socket.emit("join-room", roomId);
+    };
+
+    const onDisconnect = () => {
+      console.log("Socket disconnected");
+      setIsConnected(false);
+    };
+
+    const onConnectError = (error: Error) => {
+      console.error("Socket connection error:", error);
+      setConnectionError(error.message);
+      setIsConnected(false);
+    };
+
+    socket.on("connect", onConnect);
+    socket.on("disconnect", onDisconnect);
+    socket.on("connect_error", onConnectError);
 
     socket.on("canvas-state", (serverLines) => {
       setLines(serverLines);
@@ -90,7 +112,13 @@ export default function Room() {
       setLines([]);
     });
 
+    // Connect the socket
+    socket.connect();
+
     return () => {
+      socket.off("connect", onConnect);
+      socket.off("disconnect", onDisconnect);
+      socket.off("connect_error", onConnectError);
       socket.off("canvas-state");
       socket.off("user-count");
       socket.off("draw-start");
@@ -314,17 +342,31 @@ export default function Room() {
           )}
         </button>
 
-        {/* User Count */}
+        {/* User Count & Connection Status */}
         <div className="flex items-center gap-2 bg-[#232329] px-4 py-2.5 rounded-xl shadow-lg border border-[#3d3d45]">
           <div className="flex items-center gap-1">
-            <div className="w-2 h-2 bg-[#22c55e] rounded-full animate-pulse" />
+            <div 
+              className={`w-2 h-2 rounded-full ${
+                isConnected 
+                  ? "bg-[#22c55e] animate-pulse" 
+                  : "bg-[#ef4444]"
+              }`} 
+              title={isConnected ? "Connected" : connectionError || "Disconnected"}
+            />
             <Users size={16} className="text-[#a1a1aa]" />
           </div>
           <span className="text-sm font-medium text-[#e4e4e7]">
-            {userCount} {userCount === 1 ? "user" : "users"}
+            {isConnected ? `${userCount} ${userCount === 1 ? "user" : "users"}` : "Connecting..."}
           </span>
         </div>
       </div>
+
+      {/* Connection Error Banner */}
+      {connectionError && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-30 bg-red-500/90 text-white px-4 py-2 rounded-lg shadow-lg">
+          <span className="text-sm">Connection failed: {connectionError}</span>
+        </div>
+      )}
 
       {/* Room ID indicator - bottom left */}
       <div className="fixed bottom-4 left-4 z-20">
